@@ -1,0 +1,52 @@
+name: Matrix Build with Artifacts
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: matrix-fba5e83 - show build context
+        run: |
+          echo "Running on $RUNNER_OS (${{ matrix.os }})"
+          echo "GitHub run id: $GITHUB_RUN_ID"
+          echo "Matrix context: ${{ toJson(matrix) }}"
+      
+      # Generate artifact on Linux / macOS
+      - name: Generate build artifact (bash)
+        if: matrix.os != 'windows-latest'
+        run: |
+          echo "Build output for ${GITHUB_RUN_ID} on $RUNNER_OS (${{ matrix.os }})" > output.txt
+          echo "Generated at: $(date -u)" >> output.txt
+          echo "Runner: $RUNNER_OS" >> output.txt
+
+      # Generate artifact on Windows
+      - name: Generate build artifact (pwsh)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $content = "Build output for $env:GITHUB_RUN_ID on $env:RUNNER_OS (${{ matrix.os }})"
+          $content += "`nGenerated at: $(Get-Date -Format o)"
+          $content += "`nRunner: $env:RUNNER_OS"
+          Set-Content -Path output.txt -Value $content
+
+      - name: Verify artifact (show head)
+        run: |
+          echo "=== artifact preview ==="
+          head -n 20 output.txt || type output.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # artifact name must use prefix build-fba5e83-<variant>
+          name: build-fba5e83-${{ matrix.os }}
+          path: output.txt
